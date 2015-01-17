@@ -12,6 +12,7 @@ env:
 
 before_install:
 - export DISPLAY=:99.0
+- export GIT_SHA=$(git rev-parse HEAD)
 - ./scripts/travis/install_dart.sh
 - sh -e /etc/init.d/xvfb start
 - if [[ -e SKIP_TRAVIS_TESTS ]]; then { cat SKIP_TRAVIS_TESTS ; exit 0; } fi
