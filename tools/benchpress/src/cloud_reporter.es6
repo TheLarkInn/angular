@@ -208,13 +208,14 @@ function insertRows(authClient, tableConfig, rows) {
 function makeNodeJsResolver(defer) {
   return function(err, result) {
     if (err) {
-      // Normalize errors messages from BigCloud so that they show up nicely
-      if (err.errors) {
-        err = err.errors.map(function(err) {
-          return err.message;
-        }).join('\n');
-      }
-      defer.reject(err);
+      // // Normalize errors messages from BigCloud so that they show up nicely
+      // if (err.errors) {
+      //   err = err.errors.map(function(err) {
+      //     return err.message;
+      //   }).join('\n');
+      // }
+      // Format errors in a nice way
+      defer.reject(JSON.stringify(err, null, '  '));
     } else {
       defer.fulfill(result);
     }
