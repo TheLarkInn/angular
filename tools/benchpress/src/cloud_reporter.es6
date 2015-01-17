@@ -112,16 +112,21 @@ class CloudReporter {
     var allRows = this.allSample.map(function(data) {
       return self._convertToTableRow(data, stableSample);
     });
-    flow.execute(function() {
-      var promises = [];
-      // We need to split up the rows into multi requests as
-      // there is a size limit in BigQuery!
-      for (var i=0; i<Math.ceil(allRows.length / 10); i++) {
-        var currentRows = allRows.slice(i*10, i*10 + 10);
-        promises.push(insertRows(self.authClient, self.tableConfig, currentRows));
-      }
-      return webdriver.promise.all(promises);
-    });
+    var promises = [];
+    // We need to split up the rows in batches as BigQuery
+    // has a size limit on requests.
+    // Note: executing the requests in parallel leads to timeouts sometime...
+    // TODO(tbosch): add an automatic retry mechnism!
+    // -> need to add a rowId as explained in BigQuery docs,
+    //    so that I can retry the whole row set and not get duplicates!
+    for (var i = 0; i < Math.ceil(allRows.length / 10); i++) {
+      (function(currentRows) {
+        promises.push(flow.execute(function() {
+          insertRows(self.authClient, self.tableConfig, currentRows);
+        }));
+      })(allRows.slice(i * 10, i * 10 + 10));
+    }
+    return webdriver.promise.all(promises);
   }
   _convertToTableRow(benchpressRow, stableSample) {
     var tableRow = {
