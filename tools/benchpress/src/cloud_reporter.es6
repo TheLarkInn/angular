@@ -113,7 +113,14 @@ class CloudReporter {
       return self._convertToTableRow(data, stableSample);
     });
     flow.execute(function() {
-      return insertRows(self.authClient, self.tableConfig, allRows)
+      var promises = [];
+      // We need to split up the rows into multi requests as
+      // there is a size limit in BigQuery!
+      for (var i=0; i<Math.ceil(allRows.length / 10); i++) {
+        var currentRows = allRows.slice(i*10, i*10 + 10);
+        promises.push(insertRows(self.authClient, self.tableConfig, currentRows));
+      }
+      return webdriver.promise.all(promises);
     });
   }
   _convertToTableRow(benchpressRow, stableSample) {
@@ -236,15 +243,12 @@ function insertRows(authClient, tableConfig, rows) {
       })
     }
   };
+
   var defer = webdriver.promise.defer();
   bigquery.tabledata.insertAll(params, makeNodeJsResolver(defer));
   return defer.promise.then(function(result) {
     if (result.insertErrors) {
-      throw result.insertErrors.map(function(err) {
-        return err.errors.map(function(err) {
-          return err.message;
-        }).join('\n');
-      }).join('\n');
+      throw JSON.stringify(result.insertErrors, null, '  ');
     }
   });
 }
@@ -252,12 +256,6 @@ function insertRows(authClient, tableConfig, rows) {
 function makeNodeJsResolver(defer) {
   return function(err, result) {
     if (err) {
-      // // Normalize errors messages from BigCloud so that they show up nicely
-      // if (err.errors) {
-      //   err = err.errors.map(function(err) {
-      //     return err.message;
-      //   }).join('\n');
-      // }
       // Format errors in a nice way
       defer.reject(JSON.stringify(err, null, '  '));
     } else {
