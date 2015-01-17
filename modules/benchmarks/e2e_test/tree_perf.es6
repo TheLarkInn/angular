@@ -6,7 +6,7 @@ describe('ng2 tree benchmark', function () {
 
   afterEach(perfUtil.verifyNoBrowserErrors);
 
-  iit('should log the ng stats', function() {
+  it('should log the ng stats', function() {
     perfUtil.runClickBenchmark({
       url: URL,
       buttons: ['#ng2DestroyDom', '#ng2CreateDom'],
