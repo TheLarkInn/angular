@@ -35,6 +35,11 @@ const PREAMBLE = `/**
  */
 `;
 
+// CompilerHost will implement this, but will allow simply adding writeFile: to ts.LanguageServiceHost to implement here
+export interface WriteableModuleResolutionHost extends ts.ModuleResolutionHost {
+  writeFile: ts.WriteFileCallback;
+}
+
 // TODO(alexeagle): we end up passing options and ngOptions everywhere.
 // Maybe this should extend ts.CompilerOptions so we only need this one.
 export interface AngularCompilerOptions {
@@ -59,7 +64,7 @@ export interface AngularCompilerOptions {
 
 export class CodeGenerator {
   constructor(private options: ts.CompilerOptions, private ngOptions: AngularCompilerOptions,
-              private program: ts.Program, public host: ts.CompilerHost,
+              private program: ts.Program, public host: WriteableModuleResolutionHost,
               private staticReflector: StaticReflector, private resolver: CompileMetadataResolver,
               private compiler: compiler.OfflineCompiler,
               private reflectorHost: NodeReflectorHost) {}
@@ -133,6 +138,42 @@ export class CodeGenerator {
         });
   }
 
+  codegenSingle(fileName: string): Promise<any> {
+    Parse5DomAdapter.makeCurrent();
+
+    let stylesheetPromises: Promise<any>[] = [];
+
+    const generateOneFile = (absSourcePath: string) =>
+        Promise.all(this.readComponents(absSourcePath))
+            .then((metadatas: compiler.CompileDirectiveMetadata[]) => {
+              if (!metadatas || !metadatas.length) {
+                return;
+              }
+              metadatas.forEach((metadata) => {
+                let stylesheetPaths = metadata && metadata.template && metadata.template.styleUrls;
+                if (stylesheetPaths) {
+                  stylesheetPaths.forEach((path) => {
+                    stylesheetPromises.push(this.generateStylesheet(
+                        path, metadata.template.encapsulation === ViewEncapsulation.Emulated));
+                  });
+                }
+              });
+              return this.generateSource(metadatas);
+            })
+            .then(generated => {
+              if (generated) {
+                const sourceFile = this.program.getSourceFile(absSourcePath);
+                const emitPath = this.calculateEmitPath(generated.moduleUrl);
+                this.host.writeFile(emitPath, PREAMBLE + generated.source, false, () => {},
+                                    [sourceFile]);
+              }
+            })
+            .catch((e) => { console.error(e.stack); });
+
+
+    return Promise.all(stylesheetPromises.concat(generateOneFile(fileName)));
+  }
+
   codegen(): Promise<any> {
     Parse5DomAdapter.makeCurrent();
 
@@ -171,7 +212,7 @@ export class CodeGenerator {
   }
 
   static create(ngOptions: AngularCompilerOptions, program: ts.Program, options: ts.CompilerOptions,
-                compilerHost: ts.CompilerHost): CodeGenerator {
+                compilerHost: WriteableModuleResolutionHost): CodeGenerator {
     const xhr: compiler.XHR = {get: (s: string) => Promise.resolve(compilerHost.readFile(s))};
     const urlResolver: compiler.UrlResolver = compiler.createOfflineCompileUrlResolver();
     const reflectorHost = new NodeReflectorHost(program, compilerHost, options, ngOptions);

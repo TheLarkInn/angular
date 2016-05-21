@@ -3,7 +3,7 @@ import * as ts from 'typescript';
 import {MetadataCollector, ModuleMetadata} from 'ts-metadata-collector';
 import * as fs from 'fs';
 import * as path from 'path';
-import {AngularCompilerOptions} from './codegen';
+import {AngularCompilerOptions, WriteableModuleResolutionHost} from './codegen';
 import {ImportGenerator, AssetUrl} from './compiler_private';
 
 const EXT = /(\.ts|\.d\.ts|\.js|\.jsx|\.tsx)$/;
@@ -11,8 +11,10 @@ const DTS = /\.d\.ts$/;
 
 export class NodeReflectorHost implements StaticReflectorHost, ImportGenerator {
   private metadataCollector = new MetadataCollector();
-  constructor(private program: ts.Program, private compilerHost: ts.CompilerHost,
-              private options: ts.CompilerOptions, private ngOptions: AngularCompilerOptions) {}
+  constructor(private program: ts.Program,
+              private compilerHost: WriteableModuleResolutionHost,
+              private options: ts.CompilerOptions,
+              private ngOptions: AngularCompilerOptions) {}
 
   angularImportLocations() {
     if (this.ngOptions.legacyPackageLayout) {
