@@ -33,11 +33,11 @@ export class TsickleHost extends DelegatingHost {
   // Additional diagnostics gathered by pre- and post-emit transformations.
   public diagnostics: ts.Diagnostic[] = [];
   private TSICKLE_SUPPORT = `
-interface DecoratorInvocation {
-  type: Function;
-  args?: any[];
-}
-`;
+    interface DecoratorInvocation {
+      type: Function;
+      args?: any[];
+    }
+  `;
   constructor(delegate: ts.CompilerHost, private options: ts.CompilerOptions) { super(delegate); }
 
   getSourceFile =
